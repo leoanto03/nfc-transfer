@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>NFC Receiver</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>📥 Mobile Two – Receive JSON via NFC</h2>
+    <button onclick="startListening()">Start Listening</button>
+    <pre id="output">Waiting for data...</pre>
+
+    <script>
+        async function startListening() {
+            try {
+                const reader = new NDEFReader();
+                await reader.scan();
+
+                reader.onreading = event => {
+                    for (const record of event.message.records) {
+                        if (record.mediaType === 'application/json') {
+                            const text = new TextDecoder().decode(record.data);
+                            const json = JSON.parse(text);
+                            document.getElementById('output').textContent = JSON.stringify(json, null, 2);
+                            alert('✅ JSON received via NFC!');
+                        }
+                    }
+                };
+
+                alert('🟢 Ready to receive NFC data. Bring the sender device close.');
+            } catch (err) {
+                alert('❌ Failed to start NFC scan.');
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+
+</html>

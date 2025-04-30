@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>NFC Sender</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: sans-serif;
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>📤 Mobile One – Send JSON via NFC</h2>
+    <button onclick="fetchJSON()">Fetch JSON</button>
+    <button onclick="sendJSON()">Send via NFC</button>
+    <pre id="jsonPreview">No data loaded yet.</pre>
+
+    <script>
+        let jsonData = null;
+
+        async function fetchJSON() {
+            try {
+                const res = await fetch('data.json'); // fetch from same directory
+                jsonData = await res.json();
+                document.getElementById('jsonPreview').textContent = JSON.stringify(jsonData, null, 2);
+                alert('✅ JSON fetched!');
+            } catch (e) {
+                alert('❌ Failed to fetch JSON');
+            }
+        }
+
+        async function sendJSON() {
+            if (!jsonData) {
+                alert('Please fetch the JSON first.');
+                return;
+            }
+
+            try {
+                const writer = new NDEFWriter();
+                await writer.write({
+                    records: [{
+                        recordType: 'mime',
+                        mediaType: 'application/json',
+                        data: JSON.stringify(jsonData)
+                    }]
+                });
+                alert('✅ JSON sent via NFC!');
+            } catch (err) {
+                alert('❌ NFC send failed.');
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+
+</html>
