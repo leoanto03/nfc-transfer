@@ -1,60 +1,142 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>NFC Receiver</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web NFC Receiver</title>
     <style>
-        body {
-            font-family: sans-serif;
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
+        body { font-family: sans-serif; padding: 20px; }
+        #receivedData {
+            width: 100%;
+            height: 200px;
+            margin-bottom: 10px;
+            background-color: #eee;
+            border: 1px solid #ccc;
+            padding: 5px;
+            white-space: pre-wrap; /* Preserve formatting */
+            word-wrap: break-word; /* Wrap long lines */
         }
-
-        button {
-            padding: 10px 20px;
-            margin: 10px 0;
-            font-size: 16px;
-        }
-
-        pre {
-            background: #f4f4f4;
-            padding: 10px;
-        }
+        #status { margin-top: 15px; font-weight: bold; }
+        button { padding: 10px 15px; font-size: 1em; cursor: pointer; margin-bottom: 10px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
     </style>
 </head>
-
 <body>
-    <h2>📥 Mobile Two – Receive JSON via NFC</h2>
-    <button onclick="startListening()">Start Listening</button>
-    <pre id="output">Waiting for data...</pre>
+
+    <h1>Web NFC Receiver</h1>
+    <p>This page will listen for incoming JSON data via NFC.</p>
+
+    <button id="scanButton">Start/Restart NFC Scan</button>
+    <div id="status">Status: Idle</div>
+
+    <h2>Received Data:</h2>
+    <pre id="receivedData">Waiting for data...</pre>
 
     <script>
-        async function startListening() {
-            try {
-                const reader = new NDEFReader();
-                await reader.scan();
+        const scanButton = document.getElementById('scanButton');
+        const statusDiv = document.getElementById('status');
+        const receivedDataDiv = document.getElementById('receivedData');
+        let ndefReader = null; // Keep track of the reader instance
 
-                reader.onreading = event => {
-                    for (const record of event.message.records) {
-                        if (record.mediaType === 'application/json') {
-                            const text = new TextDecoder().decode(record.data);
-                            const json = JSON.parse(text);
-                            document.getElementById('output').textContent = JSON.stringify(json, null, 2);
-                            alert('✅ JSON received via NFC!');
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = `Status: ${message}`;
+            statusDiv.className = type;
+            console.log(`Status: ${message}`);
+        }
+
+        async function startNfcReading() {
+            if (!('NDEFReader' in window)) {
+                updateStatus('Web NFC Reading is not supported on this browser/device.', 'error');
+                scanButton.disabled = true;
+                return;
+            }
+
+            if (ndefReader) {
+                // If a reader exists, maybe stop the previous scan?
+                // The API doesn't have an explicit stop, creating a new one might replace it.
+                // Or just rely on the user clicking again if needed.
+                 console.log("Restarting scan by creating a new NDEFReader instance.");
+            }
+
+            try {
+                updateStatus('Initializing NFC Reader...', 'info');
+                ndefReader = new NDEFReader(); // Create a new reader instance
+
+                // Event listener for reading errors
+                ndefReader.addEventListener("readingerror", (event) => {
+                    console.error("NFC Reading Error:", event);
+                    updateStatus(`Error reading NFC tag: ${event.message || 'Unknown error'}`, 'error');
+                });
+
+                // Event listener for successful reads
+                ndefReader.addEventListener("reading", ({ message, serialNumber }) => {
+                    updateStatus(`NFC Tag Read (Serial: ${serialNumber || 'N/A'}). Processing...`, 'info');
+                    receivedDataDiv.textContent = 'Processing incoming data...'; // Clear previous data
+
+                    let jsonRecordFound = false;
+                    for (const record of message.records) {
+                        console.log(`Record type: ${record.recordType}, MIME type: ${record.mediaType}`);
+
+                        if (record.recordType === "mime" && record.mediaType === "application/json") {
+                            jsonRecordFound = true;
+                            try {
+                                const decoder = new TextDecoder(record.encoding || 'utf-8');
+                                const jsonString = decoder.decode(record.data);
+                                const receivedJson = JSON.parse(jsonString);
+
+                                console.log("Received JSON:", receivedJson);
+                                receivedDataDiv.textContent = JSON.stringify(receivedJson, null, 2); // Pretty print
+                                updateStatus('JSON data received successfully!', 'success');
+                                // Optionally stop scanning after first successful read?
+                                // The API doesn't have an explicit stop method for scan().
+                                // A new scan() call might be needed to read again.
+
+                            } catch (e) {
+                                console.error("Error processing received JSON:", e);
+                                receivedDataDiv.textContent = `Error: Could not parse received JSON data.\nRaw data: ${record.data ? new TextDecoder().decode(record.data) : 'empty'}`;
+                                updateStatus('Error parsing received JSON data.', 'error');
+                            }
+                            break; // Process only the first JSON record found
                         }
                     }
-                };
 
-                alert('🟢 Ready to receive NFC data. Bring the sender device close.');
-            } catch (err) {
-                alert('❌ Failed to start NFC scan.');
-                console.error(err);
+                    if (!jsonRecordFound) {
+                         updateStatus('NFC tag read, but no "application/json" record found.', 'info');
+                         receivedDataDiv.textContent = 'No compatible JSON data found on the tag.';
+                    }
+                });
+
+                // Start scanning
+                await ndefReader.scan();
+                updateStatus('NFC Scan started. Bring sender device close.', 'info');
+                scanButton.textContent = 'Scanning... (Click to Re-initiate)';
+
+
+            } catch (error) {
+                console.error("NFC Scan Initialization Error:", error);
+                updateStatus(`Error starting NFC scan: ${error.message}`, 'error');
+                 ndefReader = null; // Clear reader instance on error
             }
         }
+
+        // Add event listener to the button
+        scanButton.addEventListener('click', startNfcReading);
+
+        // Optionally, try starting the scan automatically on page load
+         window.addEventListener('load', () => {
+             if ('NDEFReader' in window) {
+                 updateStatus('Ready. Click button to start scanning or wait for auto-scan (if enabled).', 'info');
+                 // Uncomment the next line to start scanning automatically when the page loads
+                 // startNfcReading();
+             } else {
+                 updateStatus('Web NFC Reading is not supported.', 'error');
+                 scanButton.disabled = true;
+             }
+         });
+
     </script>
+
 </body>
-
 </html>
-
