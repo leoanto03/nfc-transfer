@@ -1,72 +1,81 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <title>NFC Sender</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web NFC Sender</title>
     <style>
-        body {
-            font-family: sans-serif;
-            max-width: 600px;
-            margin: auto;
-            padding: 20px;
-        }
-
-        button {
-            padding: 10px 20px;
-            margin: 10px 0;
-            font-size: 16px;
-        }
-
-        pre {
-            background: #f4f4f4;
-            padding: 10px;
-        }
+        body { font-family: sans-serif; padding: 20px; }
+        #jsonData { width: 100%; height: 150px; margin-bottom: 10px; }
+        #status { margin-top: 15px; font-weight: bold; }
+        button { padding: 10px 15px; font-size: 1em; cursor: pointer; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
     </style>
 </head>
-
 <body>
-    <h2>📤 Mobile One – Send JSON via NFC</h2>
-    <button onclick="fetchJSON()">Fetch JSON</button>
-    <button onclick="sendJSON()">Send via NFC</button>
-    <pre id="jsonPreview">No data loaded yet.</pre>
+
+    <h1>Web NFC Sender</h1>
+    <p>Edit the JSON data below and click the button to share via NFC.</p>
+
+    <textarea id="jsonData">{
+  "messageId": "msg-sender-1",
+  "payload": { "value": 42, "unit": "celsius" },
+  "timestamp": 1678889900
+}</textarea>
+
+    <button id="shareNfcButton">Share via NFC</button>
+    <div id="status">Status: Idle</div>
 
     <script>
-        let jsonData = null;
+        const shareButton = document.getElementById('shareNfcButton');
+        const jsonDataTextarea = document.getElementById('jsonData');
+        const statusDiv = document.getElementById('status');
 
-        async function fetchJSON() {
-            try {
-                const res = await fetch('data.json'); // fetch from same directory
-                jsonData = await res.json();
-                document.getElementById('jsonPreview').textContent = JSON.stringify(jsonData, null, 2);
-                alert('✅ JSON fetched!');
-            } catch (e) {
-                alert('❌ Failed to fetch JSON');
-            }
+        if (!('NDEFWriter' in window)) {
+            statusDiv.textContent = 'Error: Web NFC is not supported on this browser/device.';
+            statusDiv.className = 'error';
+            shareButton.disabled = true;
+        } else {
+             statusDiv.textContent = 'Status: Web NFC is supported. Ready to share.';
+             statusDiv.className = 'info';
         }
 
-        async function sendJSON() {
-            if (!jsonData) {
-                alert('Please fetch the JSON first.');
-                return;
-            }
-
+        shareButton.addEventListener('click', async () => {
+            statusDiv.textContent = 'Status: Button clicked. Preparing to share...';
+            statusDiv.className = 'info';
+            let jsonData;
             try {
-                const writer = new NDEFWriter();
-                await writer.write({
+                jsonData = JSON.parse(jsonDataTextarea.value);
+                const jsonString = JSON.stringify(jsonData);
+
+                const ndef = new NDEFWriter();
+                statusDiv.textContent = 'Status: Ready to write. Bring receiving device close.';
+                statusDiv.className = 'info';
+
+                await ndef.write({
                     records: [{
-                        recordType: 'mime',
-                        mediaType: 'application/json',
-                        data: JSON.stringify(jsonData)
+                        recordType: "mime",
+                        mediaType: "application/json",
+                        data: new TextEncoder().encode(jsonString)
                     }]
                 });
-                alert('✅ JSON sent via NFC!');
-            } catch (err) {
-                alert('❌ NFC send failed.');
-                console.error(err);
-            }
-        }
-    </script>
-</body>
 
+                statusDiv.textContent = 'Success: Data sent successfully via NFC!';
+                statusDiv.className = 'success';
+
+            } catch (error) {
+                console.error('Error:', error);
+                if (error instanceof SyntaxError) {
+                     statusDiv.textContent = 'Error: Invalid JSON data in the textarea.';
+                } else {
+                     statusDiv.textContent = `Error during NFC write: ${error.message}`;
+                }
+                statusDiv.className = 'error';
+            }
+        });
+    </script>
+
+</body>
 </html>
