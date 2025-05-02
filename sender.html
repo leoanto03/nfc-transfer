@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web NFC Sender (Debug)</title>
+    <title>Web NFC Sender (Detailed Debug)</title>
     <style>
         body { font-family: sans-serif; padding: 20px; }
         #jsonData { width: 100%; height: 150px; margin-bottom: 10px; }
@@ -16,11 +16,11 @@
 </head>
 <body>
 
-    <h1>Web NFC Sender (Debug)</h1>
+    <h1>Web NFC Sender (Detailed Debug)</h1>
     <p>Edit the JSON data below and click the button to share via NFC.</p>
 
     <textarea id="jsonData">{
-  "messageId": "msg-sender-debug-1",
+  "messageId": "msg-sender-detailed-debug-1",
   "payload": { "value": 42, "unit": "celsius" },
   "timestamp": 1678889900
 }</textarea>
@@ -29,17 +29,30 @@
     <div id="status">Status: Initializing...</div>
 
     <script>
-        console.log("SENDER SCRIPT START");
+        console.log("SENDER SCRIPT START (Detailed Debug)");
 
         const shareButton = document.getElementById('shareNfcButton');
         const jsonDataTextarea = document.getElementById('jsonData');
         const statusDiv = document.getElementById('status');
 
+        // --- Check if elements were found ---
         console.log("Sender Elements:", { shareButton, jsonDataTextarea, statusDiv });
-        // ... (element check as before) ...
+        if (!shareButton || !jsonDataTextarea || !statusDiv) {
+            console.error("ERROR: One or more HTML elements not found!");
+            if(statusDiv) statusDiv.textContent = "Error: Page elements missing.";
+            // Consider stopping if core elements are missing
+            // throw new Error("Required elements not found for sender.");
+        }
 
+        // --- Function to update status (with logging) ---
         function updateSenderStatus(message, type = 'info') {
-            // ... (function as before) ...
+            console.log(`Sender Status Update: ${message} (Type: ${type})`);
+            if (statusDiv) {
+                statusDiv.textContent = `Status: ${message}`;
+                statusDiv.className = type;
+            } else {
+                console.error("Cannot update status, statusDiv not found.");
+            }
         }
 
         // --- MORE DETAILED Check for NDEFWriter support ---
@@ -47,39 +60,105 @@
 
         // 1. Log the value directly
         try {
-             console.log("SENDER: Value of window.NDEFWriter is:", window.NDEFWriter);
+             // Check if window exists first (it always should in browser JS)
+             if (typeof window !== 'undefined') {
+                console.log("SENDER: Value of window.NDEFWriter is:", window.NDEFWriter);
+             } else {
+                console.error("SENDER: 'window' object is not defined!");
+             }
         } catch (e) {
              console.error("SENDER: Error accessing window.NDEFWriter:", e);
         }
 
-        // 2. Check using 'in' operator (as before)
-        let writerInWindow = ('NDEFWriter' in window);
-        console.log("SENDER: Result of ('NDEFWriter' in window):", writerInWindow);
+        // 2. Check using 'in' operator
+        let writerInWindow = false; // Default to false
+        try {
+            if (typeof window !== 'undefined') {
+                writerInWindow = ('NDEFWriter' in window);
+                console.log("SENDER: Result of ('NDEFWriter' in window):", writerInWindow);
+            } else {
+                 console.error("SENDER: Cannot use 'in' operator, 'window' is not defined.");
+            }
+        } catch(e) {
+             console.error("SENDER: Error using 'in' operator for NDEFWriter:", e);
+        }
+
 
         // 3. Check using hasOwnProperty
-        let writerHasOwn = window.hasOwnProperty('NDEFWriter');
-        console.log("SENDER: Result of window.hasOwnProperty('NDEFWriter'):", writerHasOwn);
+        let writerHasOwn = false; // Default to false
+        try {
+             if (typeof window !== 'undefined') {
+                writerHasOwn = window.hasOwnProperty('NDEFWriter');
+                console.log("SENDER: Result of window.hasOwnProperty('NDEFWriter'):", writerHasOwn);
+             } else {
+                 console.error("SENDER: Cannot use 'hasOwnProperty', 'window' is not defined.");
+             }
+        } catch(e) {
+            console.error("SENDER: Error using 'hasOwnProperty' for NDEFWriter:", e);
+        }
 
-        // --- The Original Check ---
-        if (!writerInWindow) { // Use the variable now
-            console.error("SENDER: NDEFWriter check FAILED (using 'in' operator). Entering 'not supported' block.");
+
+        // --- Decision based on the 'in' operator result ---
+        if (!writerInWindow) {
+            console.error("SENDER: NDEFWriter check FAILED (based on 'in' operator). Entering 'not supported' block.");
             updateSenderStatus('Web NFC Writing is not supported on this browser/device.', 'error');
             if (shareButton) shareButton.disabled = true;
         } else {
-            console.log("SENDER: NDEFWriter check PASSED (using 'in' operator). Entering 'supported' block.");
+            // This block should execute if 'NDEFWriter' in window is true
+            console.log("SENDER: NDEFWriter check PASSED (based on 'in' operator). Entering 'supported' block.");
             updateSenderStatus('Web NFC is supported. Ready to share.', 'info');
+
             if (shareButton) {
-                 shareButton.disabled = false;
-                 // Add Event Listener only if supported
+                 shareButton.disabled = false; // Ensure button is enabled
+
+                 // --- Add Event Listener only if supported ---
                  shareButton.addEventListener('click', async () => {
-                     // ... (rest of the share button click logic) ...
-                 });
+                    updateSenderStatus('Button clicked. Preparing to share...', 'info');
+                    let jsonData;
+                    try {
+                        if (!jsonDataTextarea) throw new Error("jsonDataTextarea element not found");
+                        jsonData = JSON.parse(jsonDataTextarea.value);
+                        const jsonString = JSON.stringify(jsonData);
+
+                        console.log("SENDER: Creating NDEFWriter instance.");
+                        // This line might still fail if NDEFWriter exists but isn't a constructor
+                        const ndef = new NDEFWriter();
+                        updateSenderStatus('Ready to write. Bring receiving device close.', 'info');
+
+                        console.log("SENDER: Calling ndef.write()...");
+                        await ndef.write({
+                            records: [{
+                                recordType: "mime",
+                                mediaType: "application/json",
+                                data: new TextEncoder().encode(jsonString)
+                            }]
+                        });
+                        console.log("SENDER: ndef.write() completed successfully.");
+                        updateSenderStatus('Data sent successfully via NFC!', 'success');
+
+                    } catch (error) {
+                        console.error('SENDER Error during share:', error);
+                        if (error instanceof SyntaxError) {
+                             updateSenderStatus('Error: Invalid JSON data in the textarea.', 'error');
+                        } else if (error instanceof ReferenceError || error instanceof TypeError) {
+                             updateSenderStatus(`NFC Init Error: ${error.name} - ${error.message}`, 'error');
+                             console.error(">>> Potential issue: NDEFWriter exists but cannot be constructed?");
+                        }
+                        else {
+                             updateSenderStatus(`Error during NFC write: ${error.message}`, 'error');
+                        }
+                    }
+                });
                  console.log("SENDER: Share button event listener added.");
+
             } else {
                  console.error("SENDER: Cannot add listener, shareButton not found.");
+                 updateSenderStatus('Error: Share button missing!', 'error');
             }
-        }
-        console.log("SENDER SCRIPT END");
+        } // End of 'else' block (NDEFWriter supported)
+
+        console.log("SENDER SCRIPT END (Detailed Debug)");
     </script>
+
 </body>
 </html>
