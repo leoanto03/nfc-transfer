@@ -35,72 +35,45 @@
         const jsonDataTextarea = document.getElementById('jsonData');
         const statusDiv = document.getElementById('status');
 
-        // --- Check if elements were found ---
         console.log("Sender Elements:", { shareButton, jsonDataTextarea, statusDiv });
-        if (!shareButton || !jsonDataTextarea || !statusDiv) {
-            console.error("ERROR: One or more HTML elements not found!");
-            if(statusDiv) statusDiv.textContent = "Error: Page elements missing.";
-        }
+        // ... (element check as before) ...
 
-        // --- Function to update status (with logging) ---
         function updateSenderStatus(message, type = 'info') {
-            console.log(`Sender Status Update: ${message} (Type: ${type})`);
-            if (statusDiv) {
-                statusDiv.textContent = `Status: ${message}`;
-                statusDiv.className = type;
-            } else {
-                console.error("Cannot update status, statusDiv not found.");
-            }
+            // ... (function as before) ...
         }
 
-        // --- Check for NDEFWriter support (with logging) ---
-        console.log("SENDER: Checking for NDEFWriter support...");
-        console.log("SENDER: Does 'NDEFWriter' exist in window?", 'NDEFWriter' in window);
-        // console.log("SENDER: Window object:", window); // Uncomment for verbose logging if needed
+        // --- MORE DETAILED Check for NDEFWriter support ---
+        console.log("SENDER: Preparing for NDEFWriter check...");
 
-        if (!('NDEFWriter' in window)) {
-            console.error("SENDER: NDEFWriter check FAILED. Entering 'not supported' block.");
+        // 1. Log the value directly
+        try {
+             console.log("SENDER: Value of window.NDEFWriter is:", window.NDEFWriter);
+        } catch (e) {
+             console.error("SENDER: Error accessing window.NDEFWriter:", e);
+        }
+
+        // 2. Check using 'in' operator (as before)
+        let writerInWindow = ('NDEFWriter' in window);
+        console.log("SENDER: Result of ('NDEFWriter' in window):", writerInWindow);
+
+        // 3. Check using hasOwnProperty
+        let writerHasOwn = window.hasOwnProperty('NDEFWriter');
+        console.log("SENDER: Result of window.hasOwnProperty('NDEFWriter'):", writerHasOwn);
+
+        // --- The Original Check ---
+        if (!writerInWindow) { // Use the variable now
+            console.error("SENDER: NDEFWriter check FAILED (using 'in' operator). Entering 'not supported' block.");
             updateSenderStatus('Web NFC Writing is not supported on this browser/device.', 'error');
             if (shareButton) shareButton.disabled = true;
         } else {
-            console.log("SENDER: NDEFWriter check PASSED. Entering 'supported' block.");
+            console.log("SENDER: NDEFWriter check PASSED (using 'in' operator). Entering 'supported' block.");
             updateSenderStatus('Web NFC is supported. Ready to share.', 'info');
-            if (shareButton) shareButton.disabled = false; // Ensure button is enabled
-
-            // --- Add Event Listener only if supported ---
             if (shareButton) {
-                shareButton.addEventListener('click', async () => {
-                    updateSenderStatus('Button clicked. Preparing to share...', 'info');
-                    let jsonData;
-                    try {
-                        if (!jsonDataTextarea) throw new Error("jsonDataTextarea element not found");
-                        jsonData = JSON.parse(jsonDataTextarea.value);
-                        const jsonString = JSON.stringify(jsonData);
-
-                        console.log("SENDER: Creating NDEFWriter instance.");
-                        const ndef = new NDEFWriter();
-                        updateSenderStatus('Ready to write. Bring receiving device close.', 'info');
-
-                        console.log("SENDER: Calling ndef.write()...");
-                        await ndef.write({
-                            records: [{
-                                recordType: "mime",
-                                mediaType: "application/json",
-                                data: new TextEncoder().encode(jsonString)
-                            }]
-                        });
-                        console.log("SENDER: ndef.write() completed successfully.");
-                        updateSenderStatus('Data sent successfully via NFC!', 'success');
-
-                    } catch (error) {
-                        console.error('SENDER Error during share:', error);
-                        if (error instanceof SyntaxError) {
-                             updateSenderStatus('Error: Invalid JSON data in the textarea.', 'error');
-                        } else {
-                             updateSenderStatus(`Error during NFC write: ${error.message}`, 'error');
-                        }
-                    }
-                });
+                 shareButton.disabled = false;
+                 // Add Event Listener only if supported
+                 shareButton.addEventListener('click', async () => {
+                     // ... (rest of the share button click logic) ...
+                 });
                  console.log("SENDER: Share button event listener added.");
             } else {
                  console.error("SENDER: Cannot add listener, shareButton not found.");
@@ -108,6 +81,5 @@
         }
         console.log("SENDER SCRIPT END");
     </script>
-
 </body>
 </html>
