@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NDEFWriter Check ONLY</title>
+</head>
+<body>
+    <h1>NDEFWriter Check</h1>
+    <div id="status" style="font-weight: bold; padding: 10px;">Checking...</div>
+    <script>
+        const statusDiv = document.getElementById('status');
+        console.log("--- NDEFW MINIMAL CHECK SCRIPT START ---");
+        try {
+            // Log value directly
+            let writerValue = window.NDEFWriter;
+            console.log("Minimal Check - Value of window.NDEFWriter:", writerValue);
+
+            // Log 'in' operator result directly
+            let writerIn = ('NDEFWriter' in window);
+            console.log("Minimal Check - Result of ('NDEFWriter' in window):", writerIn);
+
+            // Update status based on 'in' operator
+            if (writerIn) {
+                console.log("Minimal Check - PASSED ('in' operator)");
+                statusDiv.textContent = 'PASSED: NDEFWriter found via "in" operator.';
+                statusDiv.style.color = 'green';
+                statusDiv.style.border = '2px solid green';
+            } else {
+                console.error("Minimal Check - FAILED ('in' operator)");
+                statusDiv.textContent = 'FAILED: NDEFWriter NOT found via "in" operator.';
+                statusDiv.style.color = 'red';
+                statusDiv.style.border = '2px solid red';
+            }
+        } catch (e) {
+            console.error("Minimal Check - Error during check:", e);
+            statusDiv.textContent = 'ERROR during check: ' + e.message;
+            statusDiv.style.color = 'orange';
+            statusDiv.style.border = '2px solid orange';
+        }
+        console.log("--- NDEFW MINIMAL CHECK SCRIPT END ---");
+    </script>
+</body>
+</html>
